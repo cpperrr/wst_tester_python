@@ -1,0 +1,96 @@
+{
+	//Default values to be used when key is missing from the vendoer specific data
+	"Default":{
+		//please note the escape of backslashes
+		//these are the data we extract on eve cells.
+		//raw_vendor = regExGroups[0]
+		//raw_type = regExGroups[1]
+		//raw_chemistry = regExGroups[2]
+		//raw_model = regExGroups[3]
+		//raw_traceabilitycode = regExGroups[4]
+		//raw_factorylocation = regExGroups[5]
+		//raw_date = regExGroups[6]
+		//raw_year = raw_date[0]
+		//raw_month = raw_date[1]
+		//raw_day = raw_date[2]
+		//raw_serialnumberondate = regExGroups[7]
+		"RegExp": "\\w{3})(\\w)(\\w)(\\d{2})(.{6})(\\w)(.{3})(\\d{7})$",
+		"RegExpGroupNames": ["Vendor", "Type", "Chemistry", "Model", "Traceabilitycode", "Factorylocation", "Date", "Serialnumberondate"],
+		"Types":
+		{
+		    "C": "Cell"
+		},
+		"Chemistries":
+		{
+		    "B": "LiFePO4"
+		},
+		//Based on the eve specs - not sure if they are indeed globally used
+		//days are taken from_global_power_website
+		"Years_table": {"0": 2010, "1": 2011, "2": 2012, "3": 2013, "4": 2014, "5": 2015, "6": 2016, "7": 2017, "8": 2018, "9": 2019, "A": 2020, "B": 2021, "C": 2022, "D": 2023, "E": 2024, "F": 2025, "G": 2026, "H": 2027, "I": 2028, "J": 2029, "K": 2030, "L": 2031, "M": 2032, "N": 2033, "O": 2034, "P": 2035, "Q": 2036, "R": 2037, "S": 2038, "T": 2039, "U": 2040 },
+		"Months_table": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "A": 10, "B": 11, "C": 12},
+		"Days_table": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15, "G": 16, "H": 17, "J": 18, "K": 19, "L": 20, "M": 21, "N": 22, "P": 23, "R": 24, "S": 25, "T": 26, "V": 27, "W": 28, "X": 29, "Y": 30, "Z": 31 }
+		
+
+	},
+    "CATL":
+    {
+        "VendorCode": "001",
+        
+        "Models":
+        {}
+    },    
+    "EVE":
+    {
+        "VendorCode": "02Y",
+        "Models":
+        {
+            "65": "LF105",
+            "71": "LF280N",
+            "72": "LF230A",
+            "73": "LF304",
+            "76": "LF280K"
+        }
+    },
+    "EVE Power":
+    {
+        "VendorCode": "04Q",
+        "Models":
+        {
+            "65": "LF105",
+            "71": "LF280N",
+            "72": "LF230A",
+            "73": "LF304",
+            "76": "LF280K"
+        }
+    },
+    "REPT":
+    {
+        "VendorCode": "081",
+        "Models":
+        {}
+    },
+    "Lishen":
+    {
+        "VendorCode": "08B",
+        "Models":
+        {}
+    },
+    "Ganfeng":
+    {
+        "VendorCode": "0AL",
+        "Models":
+        {}
+    },
+    "CALB":
+    {
+        "VendorCode": "0B5",
+        "Models":
+        {}
+    },
+    "Gotion":
+    {
+        "VendorCode": "03H",
+        "Models":
+        {}
+    }
+}
