@@ -18,12 +18,14 @@ class TestException(Exception):
 class WSTProtocolTester:
 	def __init__(self, baudrate=250, init_battery=True):
 		self.wstcom = WSTCan(debugging=False, baudrate=baudrate)
+		self.wstcom.wakeBMS()
+
 		self.test_results = {}
 
 		if init_battery and self.wstcom.isBatteryConnected(verbose=False):
 			print(_("Battery Found!"))
 			print(_("Model: %s" % self.wstcom.getModelString()))
-			print(_("serial: %s" % self.wstcom.getSerial("hex")))
+			print(_("Serial: %s" % self.wstcom.getSerial("hex")))
 			print(_("Firmware version: %s" % self.wstcom.getFirmwareVersion()))
 		else:
 			print("No battery connected")
