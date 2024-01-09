@@ -18,14 +18,12 @@ class TestException(Exception):
 class WSTProtocolTester:
 	def __init__(self, baudrate=250, init_battery=True):
 		self.wstcom = WSTCan(debugging=False, baudrate=baudrate)
-		self.wstcom.wakeBMS()
-
 		self.test_results = {}
 
 		if init_battery and self.wstcom.isBatteryConnected(verbose=False):
 			print(_("Battery Found!"))
 			print(_("Model: %s" % self.wstcom.getModelString()))
-			print(_("Serial: %s" % self.wstcom.getSerial("hex")))
+			print(_("serial: %s" % self.wstcom.getSerial("hex")))
 			print(_("Firmware version: %s" % self.wstcom.getFirmwareVersion()))
 		else:
 			print("No battery connected")
@@ -136,13 +134,3 @@ class WSTProtocolTester:
 		self.wstcom.setBaudrate(250)
 		self.wstcom.initialize()
 		return test_success
-
-	def test_CP8_functions_write_specific_methods()
-		#all these tests should be put in their own methods.
-		print(_("Test only write CP8=0 when CP8==1 [MISSING TEST]"))
-		print(_("Test 255 initialize and set CP8=1 [MISSING TEST]"))
-		print(_("Cascading works for all values [MISSING TEST]"))
-		print(_("Test 254 resets Cascade flag to 1 [MISSING TEST]"))
-		print(_("Test DOC triggers brick when CP8==1 [MISSING TEST]"))
-		print(_("Test 3 main safety features [MISSING TEST]"))
-		
