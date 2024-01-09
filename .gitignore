@@ -4,6 +4,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 output.txt
+update_all_libs.bat
+*.spec
 
 # C extensions
 *.so
@@ -12,7 +14,7 @@ output.txt
 .Python
 build/
 develop-eggs/
-dist/
+# dist/
 downloads/
 eggs/
 .eggs/
