@@ -1,5 +1,6 @@
 # SEE CHANGELOG FILE
-
+import random
+import string
 
 # CANbus lib
 from pcanbasic.PCANBasic import *  ## PCAN-Basic library import
@@ -931,7 +932,9 @@ class WSTCan:
 							response = self.getCurrentStatus()
 							if verbose:
 								print(response)
-							self.uninitializePCAN()            
+							self.uninitializePCAN()
+							if len(response) > 15 and response[13+response[7]] == 0:
+								return 300 #testing firmware
 							return response[13+response[7]] #firmware version byte is offset by temp probe count in byte 7.
 					except:
 							return False
@@ -1796,3 +1799,29 @@ class WSTCan:
 				return True
 			else:
 				return False
+
+		def write_cell_voltage_calibrations(self, calibration_data):
+			model = "Unknown"
+			try:
+				model = self.getModelString()
+			except:
+				pass
+
+			serial = "Unknown"
+			try:
+				serial = self.getSerial()
+			except:
+				pass
+
+
+			# First we backup the current cellvoltages - just in case...
+			cell_voltages = self.getCellVoltages()
+			print("Current cell_voltages: %s" % cell_voltages)
+
+			now = datetime.now()
+			backup_cell_voltage_file_name = "backup_cell_voltages_%s.txt" % str(datetime.timestamp(now)).replace(".", "")
+			print(backup_cell_voltage_file_name)
+			with open(backup_cell_voltage_file_name, "w") as cell_voltage_backup_file:
+				cell_voltage_backup_file.write("Model: %s\n" % model)
+				cell_voltage_backup_file.write("Serial: %s\n" % serial)
+				cell_voltage_backup_file.write("Existing cell voltages:  %s\n" % cell_voltages)

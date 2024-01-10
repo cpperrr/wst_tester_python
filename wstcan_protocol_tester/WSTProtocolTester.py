@@ -102,15 +102,14 @@ class WSTProtocolTester:
 		baudrates_to_test = [125, 250, 500, 1000]
 		for baudrate in baudrates_to_test:
 			try:
-				self.wstcom.uninitialize()
-				self.wstcom.setBaudrate(250)
+
+				self.wstcom.setBaudrate(250, verbose=True)
 				self.wstcom.initialize()
 				self.wstcom.change_bms_baudrate(baudrate, verbose=True)
-
-				self.wstcom.uninitialize()
-				self.wstcom.setBaudrate(baudrate)
+				self.wstcom.setBaudrate(baudrate, verbose=True)
 				self.wstcom.initialize()
 				self.wstcom.emptyQueue()
+
 				if self.wstcom.isBatteryConnected():
 					print(_("Battery found on baudrate %d [OK]" % baudrate))
 				else:
