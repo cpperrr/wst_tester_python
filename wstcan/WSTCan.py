@@ -810,8 +810,11 @@ class WSTCan:
 		def readCustomParameters(self, verbose=False, asArray=True):
 			return self.getCustomParameters(verbose=verbose, asArray=asArray)
 
-		def getCustomParameters(self, asArray=True):
+		def getCustomParameters(self, verbose=False, asArray=True):
+				self.initialize()
+				self.emptyQueue()
 				response = self.queryBMS(self.readCustomParametersCommand)
+				self.uninitialize()
 				if (type(response) is list) and (len(response) >= 8):
 						# transform to array if required
 						if asArray:

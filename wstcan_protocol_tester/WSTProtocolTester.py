@@ -46,38 +46,40 @@ class WSTProtocolTester:
 
 	def test_custom_parameter_short_int(self) -> bool:
 		test_success = True
-		for i in range(9, 13):
+		for i in range(9, 21):
 			random_int = choice(list(range(65535)))
-			print(_("Writing %s to parameter: %s") % (random_int, i))
-			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=random_int, verbose=True)
+			#print(_("Writing %s to parameter: %s") % (random_int, i))
+			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=random_int, verbose=False)
 			value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
 			if value != random_int:
 				test_success = False
-				print(_("Wrong parameter value in parameter: %s. (%s is not %s)" % (i, value, random_int)))
+				print(_("Wrong parameter value in parameter: %s. (%s is not %s) [FAIL]" % (i, value, random_int)))
 			else:
-				print(_("Correct in parameter: %s" % i))
-			print("")
+				print(_("Extended Custom parameter %s is [OK]" % i))
+
 		return test_success
 
 	def test_custom_parameter_single_byte(self) -> bool:
 		current_parameter_value = self.wstcom.readCustomParameter(2, 1)
+		#  parms test syntax is, [wst_write, wst_read, errormsg, SPread]
 		old_parameter_values_to_test = {
-			1: [1, 1, "Error in CP1"],
-			2: [2, 2, "Error in CP2"],
-			3: [3, 3, "Error in CP3"],
-			4: [4, 4, "Error in CP4"],
-			5: [5, 5, "Error in CP5"],
-			6: [120, 120, "Error in CP 6 in set heating voltage threshold"],
-			7: [140, 140, "Error in CP 7 SOC 100% correction voltage threshold"],
-			8: [255, 1, "Error in CP8 - expected to revert to 1 to show initialization was successful  "]
+			1: [1, 1, "Error in CP1", 1],
+			2: [2, 2, "Error in CP2", 2],
+			3: [3, 3, "Error in CP3", 3],
+			4: [4, 4, "Error in CP4", 4],
+			5: [5, 5, "Error in CP5", 5],
+			6: [120, 120, "Error in CP 6 in set heating voltage threshold", 2.4],
+			7: [140, 140, "Error in CP 7 SOC 100% correction voltage threshold", 2.8],
+			8: [255, 1, "Error in CP8 - expected to revert to 1 to show initialization was successful", 1]
 		}
 		test_failed = False
 		for parameter_number, value_array in old_parameter_values_to_test.items():
 			written_parm_value = value_array[0]
 			expected_read_value = value_array[1]
 			error_message = value_array[2]
+			expected_read_value_sp = value_array[3]
 
-			print(_("Testing Custom Parameter %s. Writing %s") % (parameter_number, written_parm_value))
+			# print(_("Testing Custom Parameter %s. Writing %s") % (parameter_number, written_parm_value))
 			old_value = self.wstcom.readCustomParameter(2, parameter_number)
 			if old_value != 0 and False:
 				test_failed = True
@@ -86,15 +88,23 @@ class WSTProtocolTester:
 
 			self.wstcom.writeCustomParameter(2, parameter_number, written_parm_value)
 			actual_read_value = self.wstcom.readCustomParameter(2, parameter_number)
+			self.wstcom.emptyQueue()
+			sp_custom_parameters = self.wstcom.readCustomParameters(verbose=True)
+			actual_read_value_sp = self.wstcom.readCustomParameters()[parameter_number-1]
 			if actual_read_value != expected_read_value:
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
 				test_failed = True
-				print(_("%s - Parameter %s is %s, but %s was expected [FAIL]" % (error_message, parameter_number, actual_read_value, expected_read_value)))
+				print(_("%s - Parameter %s is %s, but %s was expected when reading WST protocol[FAIL]" % (error_message, parameter_number, actual_read_value, expected_read_value)))
+			elif actual_read_value_sp != expected_read_value_sp:
+				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
+				test_failed = True
+				print(_("%s - Parameter %s is %s, but %s was expected when reading SP protocol[FAIL]" % (error_message, parameter_number, actual_read_value, expected_read_value)))
 			else:
+				print(_("Testing Custom Parameter %s. Writing %s [OK]") % (parameter_number, written_parm_value))
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
 
 		if test_failed:
-			raise TestException(_("A custom parameter test in 1-7 failed See messages above [FAIL]"))
+			raise TestException(_("A custom parameter test in 1-8 failed See messages above [FAIL]"))
 		return True  # test was a success
 
 	def test_change_baudrates(self) -> bool:
@@ -103,10 +113,10 @@ class WSTProtocolTester:
 		for baudrate in baudrates_to_test:
 			try:
 
-				self.wstcom.setBaudrate(250, verbose=True)
+				self.wstcom.setBaudrate(250, verbose=False)
 				self.wstcom.initialize()
-				self.wstcom.change_bms_baudrate(baudrate, verbose=True)
-				self.wstcom.setBaudrate(baudrate, verbose=True)
+				self.wstcom.change_bms_baudrate(baudrate, verbose=False)
+				self.wstcom.setBaudrate(baudrate, verbose=False)
 				self.wstcom.initialize()
 				self.wstcom.emptyQueue()
 
