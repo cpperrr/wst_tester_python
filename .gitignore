@@ -1,4 +1,6 @@
 # Byte-compiled / optimized / DLL files
+#*/backup_cell*
+
 __pycache__/
 */__pycache__/*
 *.py[cod]
