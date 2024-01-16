@@ -1,0 +1,3 @@
+Model: DANITECH0001
+Serial: 000001
+Existing cell voltages:  [2933, 3328, 3325, 3322, 3323, 3324, 3319, 3329]

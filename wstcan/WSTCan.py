@@ -157,6 +157,9 @@ class WSTCan:
 						"EB0101039093F5")  # version is 255 when BMS is in BOOT. Byte 5 of the reply is the version.
 				self.getStatsAndLogCommand = bytes.fromhex(
 						"EAD1FF04FF08F3F5")  # First two records are not log records, but stat data as seen in the top of the log history get tool in SP Software
+				#add number of cells in next byte, then n, highbyte, lowbyte, (3 bytes per cell) with 0.1mv unit. see the docs
+				self.calibrate_cell_voltages_command_start = [0xEA, 0xD1, 0x01, 0x1E, 0xFF, 0x0F, 0x02]
+				self.get_raw_cell_voltages_command = bytes.fromhex("EAD10105FF0F00F5F5")
 				self.setBaudrate(baudrate)
 				self.type = "CAN"
 
@@ -364,7 +367,7 @@ class WSTCan:
 				
 				for frame in frames:            
 						self.writeCANFrame(0x002, frame)
-						time.sleep(0.001)
+						time.sleep(0.003)
 				
 				self.writeCANFrame(0x003, ZERO_8BYTE_FRAME)
 				time.sleep(0.3)
@@ -391,12 +394,17 @@ class WSTCan:
 		"""
 				self.initializePCAN()
 				self.emptyQueue() #Make sure the receive buffer is empty before trying new communication.
-				self.sendSPCommand(command)
+				if len(command) > 8:
+					self.sendSPPackage(command)
+				else:
+					self.sendSPCommand(command)
 				responseArray = []
 				for i in range(expectedPackages):
 						response = self.readPackage(dataOnly=False)
+
 						commandByteList = list(command)
 						if response and len(response) > 6 and commandByteList[:3] == response[:3]:
+
 								if dataOnly:
 										response = response[6:response[3] + 2]
 										responseArray.append(response)
@@ -409,6 +417,7 @@ class WSTCan:
 				self.emptyQueue()
 				self.uninitializePCAN()
 				if len(responseArray) > 0:
+
 						if expectedPackages == 1:
 								return responseArray[0]
 						else:
@@ -1640,7 +1649,7 @@ class WSTCan:
 						self.sendSPPackage(self.shutdownCommand)
 
 		def read_custom_parameter_short_int(self, node_id, parameter_number):
-			assert 50 >= parameter_number >= 9
+			assert 20 >= parameter_number >= 1
 			# print("reading parameter %i from node_id: %i" % (parameterNumber, node_id))
 			# BD is for parameters
 			# 0x04 0x10 is the read command
@@ -1662,7 +1671,7 @@ class WSTCan:
 				assert 0 <= data <= 65535
 			except:
 				raise Exception("Cannot write a value not within 0<=VALUE<=65535")
-			assert 50 >= parameter_number >= 9
+			assert 20 >= parameter_number >= 1
 
 			data_bytes = data.to_bytes(2, 'big')
 			payloadWithOutChecksum = [0xBD, int(node_id), int(data_bytes[0]), int(parameter_number), int(data_bytes[1]), 0x04, 0x80]
@@ -1783,6 +1792,40 @@ class WSTCan:
 
 			return basic_info
 
+		def get_raw_cell_voltages(self):
+			response = self.queryBMS(self.get_raw_cell_voltages_command)
+			if response:
+				cells_in_total = response[2]
+				#print("cells_in_total: %s" % cells_in_total)
+				#print("response: %s" % response)
+				raw_cell_voltages_in_mv = []
+				spparser = SpParser()
+				for i in range(cells_in_total):
+					raw_cell_voltages_in_mv.append(spparser.read_two_bytes_big_endian_from_array(response, 3+2*i))
+				#print("raw_cell_voltages_in_mv: %s " % raw_cell_voltages_in_mv)
+				return raw_cell_voltages_in_mv
+			else:
+				print("no response from BMS in reading cell aq.")
+
+		def calculate_cell_voltage_coefficient(self, raw_cell_voltage, target_cell_voltage):
+			coefficient = raw_cell_voltage / target_cell_voltage
+			return round(coefficient, 1)
+
+		#remember to multiply by 10 before writing to BMS
+		def get_cell_voltage_calibration_coefficients(self):
+			raw_cell_voltages = self.get_raw_cell_voltages()
+			calibrated_cell_voltages = self.getCellVoltages()
+
+			if len(raw_cell_voltages) != len(calibrated_cell_voltages):
+				raise Exception("The length of raw_cell_voltages and calibrated_cell_voltages do not match")
+
+			cell_voltage_calibration_coefficients = []
+			for i in range(len(calibrated_cell_voltages)):
+				coefficient = self.calculate_cell_voltage_coefficient(raw_cell_voltages[i], calibrated_cell_voltages[i])
+				cell_voltage_calibration_coefficients.append(coefficient)
+
+			return cell_voltage_calibration_coefficients
+
 		def change_bms_baudrate(self, baudrate, verbose=False):
 			baudrate_commands = {
 				125: [0xBC, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x10, 0x53],
@@ -1804,6 +1847,8 @@ class WSTCan:
 				return False
 
 		def write_cell_voltage_calibrations(self, calibration_data):
+			self.initialize()
+			self.emptyQueue()
 			model = "Unknown"
 			try:
 				model = self.getModelString()
@@ -1816,15 +1861,55 @@ class WSTCan:
 			except:
 				pass
 
-
-			# First we backup the current cellvoltages - just in case...
-			cell_voltages = self.getCellVoltages()
-			print("Current cell_voltages: %s" % cell_voltages)
+			# First we backup the current cell voltages - just in case...
+			backup_cell_voltages = self.getCellVoltages()
+			cells_total = len(backup_cell_voltages)
+			assert cells_total > 1
+			#print("Current backup_cell_voltages: %s" % backup_cell_voltages)
 
 			now = datetime.now()
 			backup_cell_voltage_file_name = "backup_cell_voltages_%s.txt" % str(datetime.timestamp(now)).replace(".", "")
-			print(backup_cell_voltage_file_name)
-			with open(backup_cell_voltage_file_name, "w") as cell_voltage_backup_file:
+			backup_cell_voltages_file_path = Path("backup_cell_voltage_data", backup_cell_voltage_file_name)
+			backup_cell_voltages_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+			backup_cell_voltages_in_mv = list(map(lambda v: int(v*1000), backup_cell_voltages))
+			#print("Cell voltages in mV: %s" % backup_cell_voltages_in_mv)
+
+			with open(backup_cell_voltages_file_path, "w") as cell_voltage_backup_file:
 				cell_voltage_backup_file.write("Model: %s\n" % model)
 				cell_voltage_backup_file.write("Serial: %s\n" % serial)
-				cell_voltage_backup_file.write("Existing cell voltages:  %s\n" % cell_voltages)
+				cell_voltage_backup_file.write("Existing cell voltages:  %s\n" % backup_cell_voltages_in_mv)
+
+			calibration_cell_data = {}
+
+			#for index, cell_voltage in enumerate(backup_cell_voltages_in_mv):
+			#	print("cell %s, has: %s voltage" % (index+1, cell_voltage))
+
+			#read raw cell voltages
+			raw_cell_voltages = self.get_raw_cell_voltages()
+			#print("raw_cell_voltages: %s" % raw_cell_voltages)
+			cell_voltage_calibration_coefficients = self.get_cell_voltage_calibration_coefficients()
+			#print("cell_voltage_calibration_coefficients: %s" % cell_voltage_calibration_coefficients)
+			new_cell_voltage_calibration_coefficients = cell_voltage_calibration_coefficients.copy()
+
+			#add changed voltages to new coefficients list
+			for cell_number, cell_voltage in calibration_data.items():
+				new_coefficient = int(self.calculate_cell_voltage_coefficient(raw_cell_voltages[cell_number - 1], round(cell_voltage, 3)))
+				new_cell_voltage_calibration_coefficients[cell_number-1] = new_coefficient
+
+			#print("new coefficients: %s " % new_cell_voltage_calibration_coefficients)
+
+			# construct data package
+			calibration_data_package = self.calibrate_cell_voltages_command_start.copy()
+			calibration_data_package.append(cells_total)
+			for index, coefficient in enumerate(new_cell_voltage_calibration_coefficients):
+				calibration_data_package.append(index+1)
+				data_bytes = int(coefficient*10).to_bytes(2, 'big')
+				calibration_data_package.extend([data_bytes[0], data_bytes[1]])
+
+			calibration_data_package.append(self.calcXOR(calibration_data_package[3:]))
+			calibration_data_package.append(0xF5)
+			#print("calibration data package: %s" % self.arrayToHex(calibration_data_package))
+			self.sendSPPackage(calibration_data_package)
+			self.uninitialize()
+			#print("after: cell voltages: %s" % self.getCellVoltages())
