@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-#*/backup_cell*
+*backup_cell*
 
 __pycache__/
 */__pycache__/*
