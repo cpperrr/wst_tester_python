@@ -4,6 +4,7 @@ if __name__ == "__main__":
 	print("Running All Tests")
 	wst_protocol_tester = WSTProtocolTester()
 	tests_to_run = [
+		"test_custom_parameter_single_byte",
 		"test_custom_parameter_short_int"]
 	results = wst_protocol_tester.run_tests(tests_to_run)
 

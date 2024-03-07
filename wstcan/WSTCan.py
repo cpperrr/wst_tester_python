@@ -138,7 +138,7 @@ class WSTCan:
 							baudrate = 125
 					except:
 						pass
-
+				self.filters_ready = False
 				self.debugging = debugging
 				self.timeout = 1
 				self.voltageStatusCommand = bytes.fromhex("EAD10104FF02F9F5")
@@ -235,6 +235,38 @@ class WSTCan:
 								PCANBasic.Initialize(PCANHANDLE, self.baudrate)
 								self.writeCANFrame(ID, DATA)
 
+		def init_filters(self, extra_can_filter=[]):
+			#print("extra_can_filter set to %s" % extra_can_filter)
+			#  The message filter is closed first to ensure the reception of the new range of IDs.
+			#
+			result = PCANBasic.SetValue(PCANHANDLE, PCAN_MESSAGE_FILTER, PCAN_FILTER_CLOSE)
+			if result != PCAN_ERROR_OK:
+				# An error occurred, get a text describing the error and show it
+				#
+				result = PCANBasic.GetErrorText(result)
+				print(result[1])
+			else:
+				# The message filter is configured to receive the IDs 2,3,4 and 5 on the PCAN-USB, Channel 1
+				#
+				can_filters = [
+					[1, 3],
+					[0xD, 0xD],
+					[0x7C0, 0x7C0]
+				]
+				if len(extra_can_filter) > 0:
+					can_filters.append(extra_can_filter)
+				for can_filter in can_filters:
+					result = PCANBasic.FilterMessages(PCANHANDLE, can_filter[0], can_filter[1], PCAN_MODE_STANDARD)
+					if result != PCAN_ERROR_OK:
+						# An error occurred, get a text describing the error and show it
+						#
+						result = PCANBasic.GetErrorText(result)
+						print(result[1])
+					else:
+						# print("Filter successfully configured.")
+						pass
+
+
 		def uninitialize(self):
 			self.uninitializePCAN()
 
@@ -242,6 +274,7 @@ class WSTCan:
 			return self.initializePCAN()
 
 		def uninitializePCAN(self):
+			self.filters_ready = False
 			PCANBasic.Uninitialize(PCANHANDLE)
 
 		def initializePCAN(self, baudrate="Deprecated - use setBaudrate method"):
@@ -261,15 +294,18 @@ class WSTCan:
 					PCANBasic.Uninitialize(PCANHANDLE)
 					result = PCANBasic.Initialize(PCANHANDLE, self.baudrate)
 					if result != PCAN_ERROR_OK:
-							# An error occurred, get a text describing the error and show it
-							#
-							result = PCANBasic.GetErrorText(result)
-							if self.debugging:
-									print("debug message after failed reinit: %s " % str(result[1]))
-							return False
+						# An error occurred, get a text describing the error and show it
+						#
+						result = PCANBasic.GetErrorText(result)
+						if self.debugging:
+							print("debug message after failed reinit: %s " % str(result[1]))
+						return False
 					else:
-							# self.wakeBMS()
-							return True
+						# self.wakeBMS()
+						if not self.filters_ready:
+							self.init_filters()
+							self.filters_ready = True
+						return True
 
 		def getStatusCodeDescAbbrArray(self):
 				returnArray = []
@@ -436,6 +472,7 @@ class WSTCan:
 						A bytearray with the response
 		"""
 				self.initializePCAN()
+				self.init_filters(extra_can_filter=[0x000, 0x7FF])
 				self.sendWSTCommand(ID, payload)
 				response = self.readWSTFrame(ID)
 				self.emptyQueue()
@@ -483,6 +520,7 @@ class WSTCan:
 						PCANBasic.Write(PCANHANDLE, CANMsg)
 
 		def readWSTFrame(self, expectedID=0x00D, timeout=10, sleepTime=0.050, verbose=False, fast=False):
+				self.init_filters(extra_can_filter=[expectedID, expectedID])
 				incomming_data_bundle = []
 				while timeout > 0:
 						timeout -= 1
@@ -789,31 +827,34 @@ class WSTCan:
 				self.uninitializePCAN()
 
 		def getProductionDate(self):				
-				response = self.queryBMS(self.readModelnumberCommand)    
-				if response:  # Handle the modern case were we actually can retrieve the model string like this.
-						modelStringLenght = response[0]
-						date_time_array = response[1 + modelStringLenght:1 + modelStringLenght + 3]  # get the 3 bytes for date
-						year = date_time_array[0] + 2015
-						month = date_time_array[1] + 1
-						day = date_time_array[2] + 1
-						date_time_str = "%s-%s-%s" % (year, month, day)
-						date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%d')
-						self.uninitializePCAN()
-						return date_time_obj
-				else:  # attempt the old style as seen on ADL24 and properly adl48
-						response = self.queryBMS(self.serialCommand, expectedPackages=2)
-						if response and len(response) == 2:  # we expect two frames
-								modelStringLenght = response[1][0]
-								date_time_array = response[1][1 + modelStringLenght:1 + modelStringLenght + 3]  # get the 3 bytes for date
-								if len(date_time_array) < 3:
-									self.uninitializePCAN()
-									return False
-								year = date_time_array[0] + 2015
-								month = date_time_array[1] + 1
-								day = date_time_array[2] + 1
-								date_time_str = "%s-%s-%s" % (year, month, day)
-								date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%d')
-								return date_time_obj
+				response = self.queryBMS(self.readModelnumberCommand)
+				try:
+					if response:  # Handle the modern case were we actually can retrieve the model string like this.
+							modelStringLenght = response[0]
+							date_time_array = response[1 + modelStringLenght:1 + modelStringLenght + 3]  # get the 3 bytes for date
+							year = date_time_array[0] + 2015
+							month = date_time_array[1] + 1
+							day = date_time_array[2] + 1
+							date_time_str = "%s-%s-%s" % (year, month, day)
+							date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%d')
+							self.uninitializePCAN()
+							return date_time_obj
+					else:  # attempt the old style as seen on ADL24 and properly adl48
+							response = self.queryBMS(self.serialCommand, expectedPackages=2)
+							if response and len(response) == 2:  # we expect two frames
+									modelStringLenght = response[1][0]
+									date_time_array = response[1][1 + modelStringLenght:1 + modelStringLenght + 3]  # get the 3 bytes for date
+									if len(date_time_array) < 3:
+										self.uninitializePCAN()
+										return False
+									year = date_time_array[0] + 2015
+									month = date_time_array[1] + 1
+									day = date_time_array[2] + 1
+									date_time_str = "%s-%s-%s" % (year, month, day)
+									date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%d')
+									return date_time_obj
+				except IndexError:
+					return False
 				self.uninitializePCAN()
 
 		def readCustomParameters(self, verbose=False, asArray=True):
@@ -992,6 +1033,7 @@ class WSTCan:
 		# each object has key values where key is the serials in the serials object and values are the corresponding ids. ITs reversed in the ids object.
 		def scanNodeIDs(self, verbose=False):
 				self.initializePCAN()
+				time.sleep(1)
 				NODE_IDsToFind = len(self.getSerials())
 				if verbose:
 						print("Looking for %s ids" % NODE_IDsToFind)
@@ -1649,7 +1691,7 @@ class WSTCan:
 						self.sendSPPackage(self.shutdownCommand)
 
 		def read_custom_parameter_short_int(self, node_id, parameter_number):
-			assert 20 >= parameter_number >= 1
+			assert 30 >= parameter_number >= 1
 			# print("reading parameter %i from node_id: %i" % (parameterNumber, node_id))
 			# BD is for parameters
 			# 0x04 0x10 is the read command
@@ -1671,7 +1713,7 @@ class WSTCan:
 				assert 0 <= data <= 65535
 			except:
 				raise Exception("Cannot write a value not within 0<=VALUE<=65535")
-			assert 20 >= parameter_number >= 1
+			assert 30 >= parameter_number >= 1
 
 			data_bytes = data.to_bytes(2, 'big')
 			payloadWithOutChecksum = [0xBD, int(node_id), int(data_bytes[0]), int(parameter_number), int(data_bytes[1]), 0x04, 0x80]

@@ -56,23 +56,64 @@ class WSTProtocolTester:
 		return self.test_results
 
 	def test_custom_parameter_short_int(self) -> bool:
+		spparser = SpParser
 		test_success = True
-		for i in range(1, 21):
+		all_status = self.wstcom.get_all_sp_status(skip=['log'])
+		ov_limit = int(all_status['parsed_parameters']['parameter_group_1']['ov_threshold']['value'])
+		ov_limit = round(ov_limit * 100)
+		uv_limit = int(all_status['parsed_parameters']['parameter_group_1']['uv_threshold']['value'])
+		uv_limit = round(uv_limit * 100)
+		occ_limit = int(all_status['parsed_parameters']['parameter_group_1']['occ1_threshold']['value'])
+		occ_limit = round(occ_limit*10)
+		cells_in_total = all_status['realtime_status']['parsed_voltage_status']['pack_cells_total']
+		test_parameter_data = {
+			"1": {"start": 1, "end": 255},
+			"2": {"start": 1, "end": 255},
+			"3": {"start": 1, "end": 255},
+			"4": {"start": 1, "end": 255},
+			"5": {"start": 1, "end": 255},
+			"6": {"start": 1, "end": 65535},
+			"7": {"start": 1, "end": 65535},
+			"8": {"start": 255, "end": 255},
+			"9": {"start": 1, "end": 65535},
+			"10": {"start": 1, "end": 65535},
+			"11": {"start": 1, "end": 65535},
+			"12": {"start": uv_limit, "end": ov_limit},
+			"13": {"start": 100, "end": occ_limit},
+			"14": {"start": 1, "end": 65535},
+			"15": {"start": 1, "end": 65535},
+			"16": {"start": 1, "end": 65535},
+			"17": {"start": 1, "end": 65535},
+			"18": {"start": 1, "end": 65535},
+			"19": {"start": 1, "end": 65535},
+			"20": {"start": 1, "end": 65535},
+			"21": {"start": 1, "end": 65535},
+			"22": {"start": 1, "end": 65535},
+			"23": {"start": 1, "end": 65535},
+			"24": {"start": 1, "end": 65535},
+			"25": {"start": 1, "end": 65535},
+			"26": {"start": 1, "end": 65535},
+			"27": {"start": 1, "end": 65535},
+			"28": {"start": 1, "end": 65535},
+			"29": {"start": 1, "end": 65535},
+			"30": {"start": 1, "end": 65535}
+		}
+		print("cells_in_total: %s" % cells_in_total)
+
+		for i in range(1, 31):
 			if i == 8:  # skip cp8
 				continue
 
-			if i in [1, 2, 3, 4, 5]:
-				random_int = choice(list(range(255)))
-			else:
-				random_int = choice(list(range(65535)))
+			start_int = test_parameter_data[str(i)]['start']
+			end_int = test_parameter_data[str(i)]['end']
+			random_int = choice(list(range(start_int, end_int)))
 
 			old_value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
 
 			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=random_int, verbose=False)
 			value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
 
-			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=old_value,
-																									 verbose=False)  # reset to old value
+			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=old_value, verbose=False)  # reset to old value
 			if value != random_int:
 				test_success = False
 				print(_("Wrong parameter value in parameter: %s. (%s is not %s) [FAIL]" % (i, value, random_int)))
