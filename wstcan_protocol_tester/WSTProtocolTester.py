@@ -58,25 +58,36 @@ class WSTProtocolTester:
 
 	def test_0x68e_0x68d_mode(self) -> bool:
 		test_success = True
+		backup_cp4 = self.wstcom.read_custom_parameter_short_int(2, 4)
 		try:
 			print("Setting up CP4 to enalbe 0x68E and D mode.")
-			self.wstcom.writeCustomParameter(2, 4, 64)
+			self.wstcom.write_custom_parameter_short_int(2, 4, 64)
 			print("Changing wstcom to use 0x68E and D mode.")
 			self.wstcom.set_protocol2_ids(self.wstcom.protocol_2_bluebotics_ids[0], self.wstcom.protocol_2_bluebotics_ids[1])
 			response = self.wstcom.getStatus(2)
 			if response:
 				print(_("0x68E and 0x68D function works [OK]"))
-				test_success = True
 			else:
 				print(_("0x68E and 0x68D function fails [FAIL]"))
 				test_success = False
-			return test_success
+
+			self.wstcom.init_filters([0x201, 0x201])
+			protocol1_response = self.wstcom.writeCANFrame(0x201, [0, 0, 0, 0, 0, 0, 0, 0])
+			time.sleep(1)
+			response = self.wstcom.read_expected_frame(expectedID=0x201)
+			if response:
+				test_success = False
+				print("0x201 response: %s " % response)
+				print(_("CP4:bit6 0x68E and 0x68D function should disable protocol 1 [FAIL]"))
+			else:
+				print(_("CP4:bit6 0x68E and 0x68D function should disable protocol 1 [OK]"))
 		except:
 			print("Exception while test_0x68E_0x68D_mode")
 			test_success = False
 		finally:
 			print("Reverting wstcom to use default ids")
 			self.wstcom.set_protocol2_ids(self.wstcom.protocol_2_default_ids[0], self.wstcom.protocol_2_default_ids[1])
+			self.wstcom.write_custom_parameter_short_int(2, 4, backup_cp4)
 			return test_success
 
 	def test_custom_parameter_short_int(self) -> bool:

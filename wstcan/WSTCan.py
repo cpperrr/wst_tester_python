@@ -527,6 +527,32 @@ class WSTCan:
 						PCANBasic.Initialize(PCANHANDLE, self.baudrate)
 						PCANBasic.Write(PCANHANDLE, CANMsg)
 
+		def read_expected_frame(self, expectedID=0x001, timeout=10, sleepTime=0.050, verbose=False, fast=False):
+				self.init_filters(extra_can_filter=[expectedID, expectedID])
+				incomming_data_bundle = []
+				while timeout > 0:
+						timeout -= 1
+						readResult = PCANBasic.Read(PCANHANDLE)
+						if verbose:
+								print(PCANBasic.GetErrorText(readResult[0]))
+						# print(readResult[0])
+						if readResult[0] == PCAN_ERROR_OK:
+								if not fast:
+										timeout += 1
+								# Process the received message
+								#
+								if readResult[1].ID == expectedID:
+										for i in range(8):
+												incomming_data_bundle.append(readResult[1].DATA[i])
+										return incomming_data_bundle
+						elif readResult[0] == PCAN_ERROR_QRCVEMPTY:
+								if not fast:
+										time.sleep(0.01)
+								if self.debugging:
+										print("empty queue - skipping cycle")
+						time.sleep(sleepTime)
+				return None
+
 		def readWSTFrame(self, expectedID="will be overwritten below", timeout=10, sleepTime=0.050, verbose=False, fast=False):
 				self.init_filters(extra_can_filter=[expectedID, expectedID])
 				expectedID = self.protocol_2_ids[1]
@@ -552,6 +578,7 @@ class WSTCan:
 								if self.debugging:
 										print("empty queue - skipping cycle")
 						time.sleep(sleepTime)
+				return None
 
 		def readPackage(self, retries=50, dataOnly=True, offset_start=0, offset_end=0):
 				self.initializePCAN()
