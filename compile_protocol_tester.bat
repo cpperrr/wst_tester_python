@@ -22,4 +22,10 @@ set fileout=test_custom_params.V%Version%
 echo %filein%
 python -m PyInstaller --onefile --clean --icon=wst.ico --name %fileout% %filein%
 
+set filein=test_0x68E_0x68D_mode.py
+set fileout=test_0x68E_0x68D_mode.V%Version%
+echo %filein%
+python -m PyInstaller --onefile --clean --icon=wst.ico --name %fileout% %filein%
+
+
 pause

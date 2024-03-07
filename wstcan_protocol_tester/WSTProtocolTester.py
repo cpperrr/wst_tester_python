@@ -40,7 +40,8 @@ class WSTProtocolTester:
 				"test_custom_parameter_short_int",
 				"test_change_baudrates",
 				"test_cp8_cell_diff",
-				"test_can_charge_protocol"]
+				"test_can_charge_protocol",
+				"test_0x68e_0x68d_mode"]
 
 
 		print(_("\nRunning %s Tests:") % len(tests_to_run))
@@ -54,6 +55,29 @@ class WSTProtocolTester:
 				self.test_results[test_string_name] = False
 			print("")
 		return self.test_results
+
+	def test_0x68e_0x68d_mode(self) -> bool:
+		test_success = True
+		try:
+			print("Setting up CP4 to enalbe 0x68E and D mode.")
+			self.wstcom.writeCustomParameter(2, 4, 64)
+			print("Changing wstcom to use 0x68E and D mode.")
+			self.wstcom.set_protocol2_ids(self.wstcom.protocol_2_bluebotics_ids[0], self.wstcom.protocol_2_bluebotics_ids[1])
+			response = self.wstcom.getStatus(2)
+			if response:
+				print(_("0x68E and 0x68D function works [OK]"))
+				test_success = True
+			else:
+				print(_("0x68E and 0x68D function fails [FAIL]"))
+				test_success = False
+			return test_success
+		except:
+			print("Exception while test_0x68E_0x68D_mode")
+			test_success = False
+		finally:
+			print("Reverting wstcom to use default ids")
+			self.wstcom.set_protocol2_ids(self.wstcom.protocol_2_default_ids[0], self.wstcom.protocol_2_default_ids[1])
+			return test_success
 
 	def test_custom_parameter_short_int(self) -> bool:
 		spparser = SpParser

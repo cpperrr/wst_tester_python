@@ -1,9 +1,5 @@
 from wstcan_protocol_tester.WSTProtocolTester import WSTProtocolTester, TestException
 
-import sys
-
-sys.stdout = open('output.txt', 'w')
-
 if __name__ == "__main__":
 	print("Running All Tests")
 	wst_protocol_tester = WSTProtocolTester()
@@ -16,5 +12,3 @@ if __name__ == "__main__":
 			indicator = "[TRUE]"
 
 		print("%s %s" % (test, indicator))
-
-sys.stdout = sys.__stdout__

@@ -141,6 +141,9 @@ class WSTCan:
 				self.filters_ready = False
 				self.debugging = debugging
 				self.timeout = 1
+				self.protocol_2_bluebotics_ids = [0x68E, 0x68D]
+				self.protocol_2_default_ids = [0x00E, 0x00D]
+				self.protocol_2_ids = [0x00E, 0x00D]
 				self.voltageStatusCommand = bytes.fromhex("EAD10104FF02F9F5")
 				self.currentStatusCommand = bytes.fromhex("EAD10104FF03F8F5")
 				self.powerStatusCommand = bytes.fromhex("EAD10104FF04FFF5")
@@ -162,6 +165,10 @@ class WSTCan:
 				self.get_raw_cell_voltages_command = bytes.fromhex("EAD10105FF0F00F5F5")
 				self.setBaudrate(baudrate)
 				self.type = "CAN"
+
+		def set_protocol2_ids(self, send_id, recv_id):
+			self.protocol_2_ids = [send_id, recv_id]
+			self.init_filters()
 
 		def intToHexString(self, intNumber):
 			return "%02x" % intNumber
@@ -250,7 +257,8 @@ class WSTCan:
 				#
 				can_filters = [
 					[1, 3],
-					[0xD, 0xD],
+					#  [0xD, 0xD], We use the variable below instead to be able to change it also.
+					self.protocol_2_ids,
 					[0x7C0, 0x7C0]
 				]
 				if len(extra_can_filter) > 0:
@@ -355,7 +363,7 @@ class WSTCan:
 				self.initializePCAN()
 				time.sleep(0.010)
 				getSerialsCommand = [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-				getSerialsID = 0x00E
+				getSerialsID = self.protocol_2_ids[0]
 				self.writeCANFrame(getSerialsID, getSerialsCommand)
 				time.sleep(0.005)
 				serials = []
@@ -519,8 +527,9 @@ class WSTCan:
 						PCANBasic.Initialize(PCANHANDLE, self.baudrate)
 						PCANBasic.Write(PCANHANDLE, CANMsg)
 
-		def readWSTFrame(self, expectedID=0x00D, timeout=10, sleepTime=0.050, verbose=False, fast=False):
+		def readWSTFrame(self, expectedID="will be overwritten below", timeout=10, sleepTime=0.050, verbose=False, fast=False):
 				self.init_filters(extra_can_filter=[expectedID, expectedID])
+				expectedID = self.protocol_2_ids[1]
 				incomming_data_bundle = []
 				while timeout > 0:
 						timeout -= 1
@@ -1076,7 +1085,7 @@ class WSTCan:
 				# request status from NODE_ID
 				NODE_ID = int(NODE_ID)
 				self.emptyQueue()
-				self.writeCANFrame(0x00e, [0x01, int(NODE_ID), 0x00, 0x00, 0x00, 0x00, 0x00, 0x01])
+				self.writeCANFrame(self.protocol_2_ids[0], [0x01, int(NODE_ID), 0x00, 0x00, 0x00, 0x00, 0x00, 0x01])
 				time.sleep(0.005)
 				data_bundle_incomplete = True
 
@@ -1093,7 +1102,7 @@ class WSTCan:
 								retries += 1
 								# Process the received message
 								#
-								if (readResult[1].ID == 0x00D
+								if (readResult[1].ID == self.protocol_2_ids[1]
 												and readResult[1].DATA[0] == int(NODE_ID)
 												and readResult[1].DATA[1] == 0
 												and readResult[1].DATA[2] == 1
@@ -1363,7 +1372,7 @@ class WSTCan:
 						raise Exception("node_id not in range")
 
 				self.emptyQueue()
-				self.writeCANFrame(0x00E, [4, node_id, 0, 0, 0, 0, 1, 1])
+				self.writeCANFrame(self.protocol_2_ids[0], [4, node_id, 0, 0, 0, 0, 1, 1])
 				log = []
 				logframe = []
 				readFrame = self.readWSTFrame()
@@ -1581,7 +1590,7 @@ class WSTCan:
 				# BD is for parameters
 				# 0x04 0x10 is the read command
 				payload = [0xBD, node_id, 0x00, parameterNumber, 0x00, 0x00, 0x04, 0x10]
-				self.writeCANFrame(0x00E, payload)
+				self.writeCANFrame(self.protocol_2_ids[0], payload)
 				time.sleep(0.3)
 				response = self.readWSTFrame()
 				if response:
@@ -1605,7 +1614,7 @@ class WSTCan:
 				payload.insert(5, checksum)
 				# print("payload to write: %s" % payload)
 				# write the frame
-				self.writeCANFrame(0x00E, payload)
+				self.writeCANFrame(self.protocol_2_ids[0], payload)
 				time.sleep(0.3)
 				response = self.readWSTFrame()
 				data = response
@@ -1628,7 +1637,7 @@ class WSTCan:
 				payload.insert(5, checksum)
 				# print("payload to write: %s" % payload)
 				# write the frame
-				self.writeCANFrame(0x00E, payload)
+				self.writeCANFrame(self.protocol_2_ids[0], payload)
 
 		def disableFirmwareUpgrades(self, node_id):
 			payloadWithOutChecksum = [0xF5, int(node_id), 0x00, 0x00, 0x00, 0x20, 0x10]
@@ -1641,7 +1650,7 @@ class WSTCan:
 			payload.insert(5, checksum)
 			# print("payload to write: %s" % payload)
 			# write the frame
-			self.writeCANFrame(0x00E, payload)
+			self.writeCANFrame(self.protocol_2_ids[0], payload)
 			time.sleep(0.1)
 			response = self.readWSTFrame()
 			if response:
@@ -1660,7 +1669,7 @@ class WSTCan:
 			payload.insert(5, checksum)
 			# print("payload to write: %s" % payload)
 			# write the frame
-			self.writeCANFrame(0x00E, payload)
+			self.writeCANFrame(self.protocol_2_ids[0], payload)
 			time.sleep(0.1)
 			response = self.readWSTFrame()
 			if response:
@@ -1696,7 +1705,7 @@ class WSTCan:
 			# BD is for parameters
 			# 0x04 0x10 is the read command
 			payload = [0xBD, node_id, 0x00, parameter_number, 0x00, 0x00, 0x04, 0x20]
-			self.writeCANFrame(0x00E, payload)
+			self.writeCANFrame(self.protocol_2_ids[0], payload)
 			time.sleep(0.5)
 			response = self.readWSTFrame()
 			if response:
@@ -1728,7 +1737,7 @@ class WSTCan:
 			if verbose:
 				print("payload to write: %s" % self.arrayToHex(payload))
 			# write the frame
-			self.writeCANFrame(0x00E, payload)
+			self.writeCANFrame(self.protocol_2_ids[0], payload)
 			time.sleep(0.3)
 			response = self.readWSTFrame()
 			if response:
@@ -1877,7 +1886,7 @@ class WSTCan:
 			}
 			assert baudrate in baudrate_commands.keys()
 
-			self.sendWSTCommand(0x00E, baudrate_commands[baudrate], format="intarray")
+			self.sendWSTCommand(self.protocol_2_ids[0], baudrate_commands[baudrate], format="intarray")
 			if verbose:
 				print("Baudrate package: %s" % self.arrayToHex(baudrate_commands[baudrate]))
 			self.uninitialize()
