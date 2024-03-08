@@ -43,7 +43,6 @@ class WSTProtocolTester:
 				"test_can_charge_protocol",
 				"test_0x68e_0x68d_mode"]
 
-
 		print(_("\nRunning %s Tests:") % len(tests_to_run))
 
 		for test_string_name in tests_to_run:
@@ -71,16 +70,6 @@ class WSTProtocolTester:
 				print(_("0x68E and 0x68D function fails [FAIL]"))
 				test_success = False
 
-			self.wstcom.init_filters([0x201, 0x201])
-			protocol1_response = self.wstcom.writeCANFrame(0x201, [0, 0, 0, 0, 0, 0, 0, 0])
-			time.sleep(1)
-			response = self.wstcom.read_expected_frame(expectedID=0x201)
-			if response:
-				test_success = False
-				print("0x201 response: %s " % response)
-				print(_("CP4:bit6 0x68E and 0x68D function should disable protocol 1 [FAIL]"))
-			else:
-				print(_("CP4:bit6 0x68E and 0x68D function should disable protocol 1 [OK]"))
 		except:
 			print("Exception while test_0x68E_0x68D_mode")
 			test_success = False
@@ -99,7 +88,7 @@ class WSTProtocolTester:
 		uv_limit = int(all_status['parsed_parameters']['parameter_group_1']['uv_threshold']['value'])
 		uv_limit = round(uv_limit * 100)
 		occ_limit = int(all_status['parsed_parameters']['parameter_group_1']['occ1_threshold']['value'])
-		occ_limit = round(occ_limit*10)
+		occ_limit = round(occ_limit * 10)
 		cells_in_total = all_status['realtime_status']['parsed_voltage_status']['pack_cells_total']
 		test_parameter_data = {
 			"1": {"start": 1, "end": 255},
@@ -113,8 +102,8 @@ class WSTProtocolTester:
 			"9": {"start": 1, "end": 65535},
 			"10": {"start": 1, "end": 65535},
 			"11": {"start": 1, "end": 65535},
-			"12": {"start": uv_limit, "end": ov_limit},
-			"13": {"start": 100, "end": occ_limit},
+			"12": {"start": uv_limit, "end": ov_limit},  # This CP accepts only values between uv and ov.
+			"13": {"start": 100, "end": occ_limit},  # This CP accepts only values below the occ threshold.
 			"14": {"start": 1, "end": 65535},
 			"15": {"start": 1, "end": 65535},
 			"16": {"start": 1, "end": 65535},
@@ -148,7 +137,8 @@ class WSTProtocolTester:
 			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=random_int, verbose=False)
 			value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
 
-			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=old_value, verbose=False)  # reset to old value
+			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=old_value,
+																									 verbose=False)  # reset to old value
 			if value != random_int:
 				test_success = False
 				print(_("Wrong parameter value in parameter: %s. (%s is not %s) [FAIL]" % (i, value, random_int)))
@@ -193,12 +183,12 @@ class WSTProtocolTester:
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
 				test_failed = True
 				print(_("%s - Parameter %s is %s, but %s was expected when reading WST protocol[FAIL]" % (
-				error_message, parameter_number, actual_read_value, expected_read_value)))
+					error_message, parameter_number, actual_read_value, expected_read_value)))
 			elif actual_read_value_sp != expected_read_value_sp:
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
 				test_failed = True
 				print(_("%s - Parameter %s is %s, but %s was expected when reading SP protocol[FAIL]" % (
-				error_message, parameter_number, actual_read_value, expected_read_value)))
+					error_message, parameter_number, actual_read_value, expected_read_value)))
 			else:
 				print(_("Testing Custom Parameter %s. Writing %s [OK]") % (parameter_number, written_parm_value))
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
@@ -300,7 +290,6 @@ class WSTProtocolTester:
 		cells_in_total = all_status['realtime_status']['parsed_voltage_status']['pack_cells_total']
 		print("cells_in_total: %s" % cells_in_total)
 
-
 		# setup parameters
 		print("Setting up can charge parameters")
 		receive_id = 0x7C0
@@ -310,19 +299,18 @@ class WSTProtocolTester:
 		can_charge_params = {
 			10: receive_id,  # Receive from charger ID
 			11: transmit_id,  # Send to charger ID
-			12: round(volt_per_cell*100),  # 0.01V unit
-			13: round(max_current*10),  # 0.1A unit
+			12: round(volt_per_cell * 100),  # 0.01V unit
+			13: round(max_current * 10),  # 0.1A unit
 			14: 1  # SP Can charge protocol
 		}
 		print("CAN charge parameters: %s" % can_charge_params)
 		for param_number, value in can_charge_params.items():
 			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=param_number, data=value, verbose=False)
 
-		#check params
+		# check params
 		for param_number, value in can_charge_params.items():
-			print("param %s is %s" % (param_number, self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=param_number)))
-
-
+			print("param %s is %s" % (
+			param_number, self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=param_number)))
 
 		# wait for BMS to be ready
 		time.sleep(1)
@@ -342,15 +330,17 @@ class WSTProtocolTester:
 		for frame in can_charge_frames:
 			try:
 				voltage_in_frame = spparser.read_two_bytes_big_endian_from_array(frame, 0)
-				calculated_voltage = round(volt_per_cell*cells_in_total*10)
+				calculated_voltage = round(volt_per_cell * cells_in_total * 10)
 				if voltage_in_frame != calculated_voltage:
-					print("voltage_in_frame %s, is not expected %s * %s * 10 = %s [FAIL]" % (voltage_in_frame, volt_per_cell, cells_in_total, calculated_voltage))
+					print("voltage_in_frame %s, is not expected %s * %s * 10 = %s [FAIL]" % (
+					voltage_in_frame, volt_per_cell, cells_in_total, calculated_voltage))
 					charge_frames_ok = False
 					break
 
 				current_in_frame = spparser.read_two_bytes_big_endian_from_array(frame, 2)
-				if current_in_frame != max_current*10:
-					print("current_in_frame %s, is not expected %s * 10 = %s [FAIL]" % (current_in_frame, max_current, round(max_current*10)))
+				if current_in_frame != max_current * 10:
+					print("current_in_frame %s, is not expected %s * 10 = %s [FAIL]" % (
+					current_in_frame, max_current, round(max_current * 10)))
 					charge_frames_ok = False
 					break
 

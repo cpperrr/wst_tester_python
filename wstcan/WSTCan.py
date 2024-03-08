@@ -1014,7 +1014,7 @@ class WSTCan:
 							self.uninitializePCAN()
 							return response[0]
 					except:
-							return False
+							return None
 				else:
 					try:
 							self.initializePCAN()
@@ -1022,11 +1022,9 @@ class WSTCan:
 							if verbose:
 								print(response)
 							self.uninitializePCAN()
-							if len(response) > 15 and response[13+response[7]] == 0:
-								return 300 #testing firmware
 							return response[13+response[7]] #firmware version byte is offset by temp probe count in byte 7.
 					except:
-							return False
+							return None
 
 		def isBatteryConnected(self, verbose=False, bootmode=False):
 				self.initializePCAN()
@@ -1034,7 +1032,7 @@ class WSTCan:
 						firmwareVersion = self.getFirmwareVersion(bootmode=bootmode, verbose=verbose)
 						if verbose:
 							print(firmwareVersion)
-						if int(firmwareVersion) > 1:
+						if int(firmwareVersion) >= 0:
 								return True
 						else:
 								return False
