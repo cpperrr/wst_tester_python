@@ -20,6 +20,7 @@ class TestException(Exception):
 class WSTProtocolTester:
 	def __init__(self, baudrate=250, init_battery=True):
 		self.wstcom = WSTCan(debugging=False, baudrate=baudrate)
+		self.wstcom.initializePCAN()
 		self.test_results = {}
 
 		if init_battery:
@@ -29,6 +30,7 @@ class WSTProtocolTester:
 				print(_("Model: %s" % self.wstcom.getModelString()))
 				print(_("serial: %s" % self.wstcom.getSerial("hex")))
 				print(_("Firmware version: %s" % self.wstcom.getFirmwareVersion()))
+				print(_("CP4: %s" % self.wstcom.readCustomParameter(2, 4)))
 			else:
 				print("No battery connected")
 				raise TestException("No battery connected or dongle not attached")
@@ -94,11 +96,10 @@ class WSTProtocolTester:
 			"1": {"start": 1, "end": 255},
 			"2": {"start": 1, "end": 255},
 			"3": {"start": 1, "end": 255},
-			"4": {"start": 1, "end": 255},
-			"5": {"start": 1, "end": 255},
+			"4": {"start": 1, "end": 8},
+			"5": {"start": 1, "end": 65535},
 			"6": {"start": 1, "end": 65535},
 			"7": {"start": 1, "end": 65535},
-			"8": {"start": 255, "end": 255},
 			"9": {"start": 1, "end": 65535},
 			"10": {"start": 1, "end": 65535},
 			"11": {"start": 1, "end": 65535},
@@ -125,7 +126,7 @@ class WSTProtocolTester:
 		print("cells_in_total: %s" % cells_in_total)
 
 		for i in range(1, 31):
-			if i == 8:  # skip cp8
+			if i in [1, 2, 3, 4, 8]:  # skip parameters only accessible by old method.
 				continue
 
 			start_int = test_parameter_data[str(i)]['start']
@@ -133,9 +134,18 @@ class WSTProtocolTester:
 			random_int = choice(list(range(start_int, end_int)))
 
 			old_value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
+			for retries in range(5):
+				if old_value:
+					break
+				old_value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
 
 			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=random_int, verbose=False)
 			value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
+			for retries in range(5):
+				if value:
+					break
+				value = self.wstcom.read_custom_parameter_short_int(node_id=2, parameter_number=i)
+
 
 			self.wstcom.write_custom_parameter_short_int(node_id=2, parameter_number=i, data=old_value,
 																									 verbose=False)  # reset to old value
@@ -148,14 +158,13 @@ class WSTProtocolTester:
 		return test_success
 
 	def test_custom_parameter_single_byte(self) -> bool:
-		current_parameter_value = self.wstcom.readCustomParameter(2, 1)
 		#  parms test syntax is, [wst_write, wst_read, errormsg, SPread]
 		old_parameter_values_to_test = {
 			1: [1, 1, "Error in CP1", 1],
 			2: [2, 2, "Error in CP2", 2],
 			3: [3, 3, "Error in CP3", 3],
 			4: [4, 4, "Error in CP4", 4],
-			5: [5, 5, "Error in CP5", 5],
+			# 5: [5, 5, "Error in CP5", 5], #5,6,7 only accessible by new short int method.
 			# 6: [120, 120, "Error in CP 6 in set heating voltage threshold", 2.4], skipped in new versions
 			# 7: [140, 140, "Error in CP 7 SOC 100% correction voltage threshold", 2.8], skipped in new versions.
 			8: [255, 1, "Error in CP8 - expected to revert to 1 to show initialization was successful", 1]
@@ -168,6 +177,7 @@ class WSTProtocolTester:
 			expected_read_value_sp = value_array[3]
 
 			# print(_("Testing Custom Parameter %s. Writing %s") % (parameter_number, written_parm_value))
+			self.wstcom.initializePCAN()
 			old_value = self.wstcom.readCustomParameter(2, parameter_number)
 			if old_value != 0 and False:
 				test_failed = True
