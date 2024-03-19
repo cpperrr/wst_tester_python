@@ -1632,7 +1632,7 @@ class WSTCan:
 		response = self.readWSTFrame()
 		if response:
 			data = response
-			print("Response: %s" % data)
+			#print("Response: %s" % data)
 			return int(data[7])
 		else:
 			# print("No response")

@@ -59,10 +59,10 @@ class WSTProtocolTester:
 
 	def test_0x68e_0x68d_mode(self) -> bool:
 		test_success = True
-		backup_cp4 = self.wstcom.read_custom_parameter_short_int(2, 4)
+		backup_cp4 = self.wstcom.readCustomParameter(2, 4)
 		try:
 			print("Setting up CP4 to enalbe 0x68E and D mode.")
-			self.wstcom.write_custom_parameter_short_int(2, 4, 64)
+			self.wstcom.writeCustomParameter(2, 4, 64)
 			print("Changing wstcom to use 0x68E and D mode.")
 			self.wstcom.set_protocol2_ids(self.wstcom.protocol_2_bluebotics_ids[0], self.wstcom.protocol_2_bluebotics_ids[1])
 			response = self.wstcom.getStatus(2)
@@ -77,8 +77,8 @@ class WSTProtocolTester:
 			test_success = False
 		finally:
 			print("Reverting wstcom to use default ids")
+			self.wstcom.writeCustomParameter(2, 4, backup_cp4)
 			self.wstcom.set_protocol2_ids(self.wstcom.protocol_2_default_ids[0], self.wstcom.protocol_2_default_ids[1])
-			self.wstcom.write_custom_parameter_short_int(2, 4, backup_cp4)
 			return test_success
 
 	def test_custom_parameter_short_int(self) -> bool:
@@ -96,7 +96,7 @@ class WSTProtocolTester:
 			"1": {"start": 1, "end": 255},
 			"2": {"start": 1, "end": 255},
 			"3": {"start": 1, "end": 255},
-			"4": {"start": 1, "end": 8},
+			"4": {"start": 1, "end": 63}, #Dont write BIT6 to 1, as that will change the CANID to 0x68E and D
 			"5": {"start": 1, "end": 65535},
 			"6": {"start": 1, "end": 65535},
 			"7": {"start": 1, "end": 65535},
@@ -126,7 +126,7 @@ class WSTProtocolTester:
 		print("cells_in_total: %s" % cells_in_total)
 
 		for i in range(1, 31):
-			if i in [1, 2, 3, 4, 8]:  # skip parameters only accessible by old method.
+			if i in [8, 1, 2, 3, 4, 5]:  # skip parameters only accessible by old method.
 				continue
 
 			start_int = test_parameter_data[str(i)]['start']
@@ -164,9 +164,9 @@ class WSTProtocolTester:
 			2: [2, 2, "Error in CP2", 2],
 			3: [3, 3, "Error in CP3", 3],
 			4: [4, 4, "Error in CP4", 4],
-			# 5: [5, 5, "Error in CP5", 5], #5,6,7 only accessible by new short int method.
-			# 6: [120, 120, "Error in CP 6 in set heating voltage threshold", 2.4], skipped in new versions
-			# 7: [140, 140, "Error in CP 7 SOC 100% correction voltage threshold", 2.8], skipped in new versions.
+			5: [5, 5, "Error in CP5", 5],
+			# 6: [120, 120, "Error in CP 6 in set heating voltage threshold", 2.4], #6,7 only accessible by new short int method.
+			# 7: [140, 140, "Error in CP 7 SOC 100% correction voltage threshold", 140],
 			8: [255, 1, "Error in CP8 - expected to revert to 1 to show initialization was successful", 1]
 		}
 		test_failed = False
@@ -189,7 +189,7 @@ class WSTProtocolTester:
 			self.wstcom.emptyQueue()
 			sp_custom_parameters = self.wstcom.readCustomParameters(verbose=True)
 			actual_read_value_sp = self.wstcom.readCustomParameters()[parameter_number - 1]
-			if actual_read_value != expected_read_value:
+			if int(actual_read_value) != int(expected_read_value):
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
 				test_failed = True
 				print(_("%s - Parameter %s is %s, but %s was expected when reading WST protocol[FAIL]" % (
@@ -198,7 +198,7 @@ class WSTProtocolTester:
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
 				test_failed = True
 				print(_("%s - Parameter %s is %s, but %s was expected when reading SP protocol[FAIL]" % (
-					error_message, parameter_number, actual_read_value, expected_read_value)))
+					error_message, parameter_number, actual_read_value_sp, expected_read_value_sp)))
 			else:
 				print(_("Testing Custom Parameter %s. Writing %s [OK]") % (parameter_number, written_parm_value))
 				self.wstcom.writeCustomParameter(2, parameter_number, old_value)
