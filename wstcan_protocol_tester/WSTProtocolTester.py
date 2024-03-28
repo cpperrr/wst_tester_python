@@ -242,6 +242,7 @@ class WSTProtocolTester:
 		self.wstcom.uninitialize()
 		self.wstcom.setBaudrate(250)
 		self.wstcom.initialize()
+		self.wstcom.uninitialize()
 		return test_success
 
 	def test_cp8_cell_diff(self):

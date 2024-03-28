@@ -1930,8 +1930,10 @@ class WSTCan:
 		self.setBaudrate(baudrate)
 		self.initialize()
 		if self.isBatteryConnected():
+			self.uninitialize()
 			return True
 		else:
+			self.uninitialize()
 			return False
 
 	def write_cell_voltage_calibrations(self, calibration_data):
